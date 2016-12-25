@@ -12,8 +12,8 @@ export class AppComponent implements OnInit {
   height = 600;
   currentMax = 0;
   baseW = 80;
-  heightFactor = 0;
-  lean = 0;
+  heightFactor: any = 0;
+  lean: any = 0;
 
   running = false;
   realMax = 11;
