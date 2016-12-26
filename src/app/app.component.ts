@@ -1,6 +1,20 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild, EventEmitter } from '@angular/core';
 import { select as d3select, mouse as d3mouse } from 'd3-selection';
-import { scaleLinear } from 'd3-scale';
+import {  scaleLinear } from 'd3-scale';
+import { Observable } from 'rxjs';
+import { PythagorasModel } from './pythagoras/pythagoras.component';
+
+const svgDimensions = {
+  width: 1280,
+  height: 600
+};
+const realMax = 11;
+const baseW = 80;
+
+const scaleFactor =
+  scaleLinear().domain([svgDimensions.height, 0]).range([0, .8]);
+const scaleLean =
+  scaleLinear().domain([0, svgDimensions.width / 2, svgDimensions.width]).range([.5, 0, -.5]);
 
 @Component({
   selector: 'app-root',
@@ -8,41 +22,46 @@ import { scaleLinear } from 'd3-scale';
   styleUrls: ['./app.component.css']
 })
 export class AppComponent implements OnInit {
-  width = 1280;
-  height = 600;
-  currentMax = 0;
-  baseW = 80;
-  heightFactor: any = 0;
-  lean: any = 0;
+  svgDimensions = svgDimensions;
+  pythagoras: PythagorasModel = {
+    w: baseW,
+    heightFactor: 0,
+    lean: 0,
+    x: svgDimensions.width / 2 - 40,
+    y: svgDimensions.height - baseW,
+    lvl: 0,
+    maxlvl: 0
+  };
 
-  running = false;
-  realMax = 11;
-
-  @ViewChild('svg') svgRef: ElementRef;
+  onMouseMove$ = new EventEmitter<MouseEvent>();
 
   ngOnInit() {
-    d3select(this.svgRef.nativeElement)
-      .on('mousemove', () => this.mouseMove());
-    this.next();
-  }
+    let running = false;
 
-  private next() {
-    if (this.currentMax < this.realMax) {
-      this.currentMax++;
-      setTimeout(() => this.next(), 500);
-    }
-  }
+    const factorAndLean$ = this.onMouseMove$
+      .filter(() => !running)
+      .do(() => running = true)
+      .map((mouseEvent: MouseEvent) => {
+        const { offsetX: x, offsetY: y } = mouseEvent;
+        return {
+          heightFactor: scaleFactor(y),
+          lean: scaleLean(x)
+        };
+      })
+      .startWith({ heightFactor: 0, lean: 0 });
 
-  private mouseMove() {
-    const [x, y] = d3mouse(this.svgRef.nativeElement);
-    const scaleFactor = scaleLinear()
-      .domain([this.height, 0])
-      .range([0, .8]);
-    const scaleLean = scaleLinear()
-      .domain([0, this.width / 2, this.width])
-      .range([.5, 0, -.5]);
-    this.heightFactor = scaleFactor(y);
-    this.lean = scaleLean(x);
+    Observable.combineLatest(
+        factorAndLean$,
+        Observable.interval(100).timeInterval().take(realMax)
+      )
+      .subscribe(([{ heightFactor, lean }, maxlvl]) => {
+        this.pythagoras = Object.assign({}, this.pythagoras, {
+          heightFactor,
+          lean,
+          maxlvl: maxlvl.value + 1
+        });
+        running = false;
+      });
   }
 
 }

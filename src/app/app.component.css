@@ -13,3 +13,7 @@
 .App-intro {
   font-size: large;
 }
+
+svg {
+  border: 1px solid lightgray;
+}

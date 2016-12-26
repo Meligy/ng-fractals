@@ -5,83 +5,115 @@ function deg(radians) {
   return radians * (180 / Math.PI);
 };
 
-const memoizedCalc = function(): (any) => {nextRight: number, nextLeft: number, A: number, B: number} {
+const memoizedCalc = function (): (any) => { nextRight: number, nextLeft: number, A: number, B: number } {
   const memo = {};
 
-  const key = ({ w, heightFactor, lean }) => [w,heightFactor, lean].join('-');
+  const key = ({ w, heightFactor, lean }) => [w, heightFactor, lean].join('-');
 
   return (args) => {
     const memoKey = key(args);
 
     if (memo[memoKey]) {
-     return memo[memoKey];
+      return memo[memoKey];
     } else {
       const { w, heightFactor, lean } = args;
 
-      const trigH = heightFactor*w;
+      const trigH = heightFactor * w;
 
       const result = {
-          nextRight: Math.sqrt(trigH**2 + (w * (.5+lean))**2),
-          nextLeft: Math.sqrt(trigH**2 + (w * (.5-lean))**2),
-          A: deg(Math.atan(trigH / ((.5-lean) * w))),
-          B: deg(Math.atan(trigH / ((.5+lean) * w)))
+        nextRight: Math.sqrt(trigH ** 2 + (w * (.5 + lean)) ** 2),
+        nextLeft: Math.sqrt(trigH ** 2 + (w * (.5 - lean)) ** 2),
+        A: deg(Math.atan(trigH / ((.5 - lean) * w))),
+        B: deg(Math.atan(trigH / ((.5 + lean) * w)))
       };
 
       memo[memoKey] = result;
       return result;
     }
-  }
-}();
+  };
+} ();
+
+export type PythagorasDirection = 'left' | 'right';
+export interface PythagorasModel {
+  w: number;
+  x: number;
+  y: number;
+  heightFactor: number;
+  lean: number;
+  direction?: PythagorasDirection;
+  lvl: number;
+  maxlvl: number;
+};
 
 @Component({
-  selector: '[app-pythagoras]',
+  // tslint:disable-next-line:component-selector
+  selector: '[pythagoras]',
   templateUrl: './pythagoras.component.html',
   styleUrls: ['./pythagoras.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class PythagorasComponent implements OnChanges {
-  @Input() w: number;
-  @Input() x: number;
-  @Input() y: number;
-  @Input() heightFactor: number;
-  @Input() lean: number;
-  @Input() left: boolean;
-  @Input() right: boolean;
-  @Input() lvl: number;
-  @Input() maxlvl: number;
+export class PythagorasComponent {
+  pythagorasParent: PythagorasModel;
+  pythagorasLeft: PythagorasModel;
+  pythagorasRight: PythagorasModel;
 
-  nextRight: number;
-  nextLeft: number;
-  A: number;
-  B: number;
+  fill: string;
+  rotate: string;
 
-  ngOnChanges() {
+  get pythagoras() { return this.pythagorasParent; }
+  @Input('pythagoras') set pythagoras(pythagoras: PythagorasModel) {
+    this.pythagorasParent = pythagoras;
+    if (!pythagoras) {
+      return;
+    }
+
     const calc = memoizedCalc({
-      w: this.w,
-      heightFactor: this.heightFactor,
-      lean: this.lean
+      w: pythagoras.w,
+      heightFactor: pythagoras.heightFactor,
+      lean: pythagoras.lean
     });
-    this.nextRight = calc.nextRight;
-    this.nextLeft = calc.nextLeft;
-    this.A = calc.A;
-    this.B = calc.B;
+
+    this.fill = this.getFill(pythagoras.lvl, pythagoras.maxlvl);
+    this.rotate = this.getRotate(pythagoras.direction, calc.A, calc.B);
+
+    this.pythagorasLeft = this.getChildPythagoras('left', calc.nextLeft);
+    this.pythagorasRight = this.getChildPythagoras('right', calc.nextRight);
+  };
+
+  getChildPythagoras(direction: PythagorasDirection, nextW: number) {
+    const lvl = this.pythagoras.lvl + 1;
+    if (nextW < 1 || lvl >= this.pythagoras.maxlvl) {
+      return null;
+    }
+
+    return Object.assign({}, this.pythagoras, {
+      direction,
+      lvl,
+      w: nextW,
+      x: direction === 'left' ? 0 : this.pythagoras.w - nextW,
+      y: -nextW
+    });
   }
 
   @HostBinding('attr.transform') get transform() {
-    return `translate(${this.x} ${this.y}) ${this.getRotate()}`;
+    if (!this.pythagoras) {
+      return '';
+    }
+    return `translate(${this.pythagoras.x} ${this.pythagoras.y}) ${this.rotate}`;
   }
 
-  private getRotate() {
-    if (this.left) {
-      return `rotate(${-this.A} 0 ${this.w})`;
-    } else if (this.right) {
-      return `rotate(${this.B} ${this.w} ${this.w})`;
-    } else {
-      return '';
+  private getRotate(direction: PythagorasDirection, calcA: number, calcB: number) {
+    switch (direction) {
+      case 'left':
+        return `rotate(${-calcA} 0 ${this.pythagoras.w})`;
+      case 'right':
+        return `rotate(${calcB} ${this.pythagoras.w} ${this.pythagoras.w})`;
+      default:
+        return '';
     }
   }
 
-  getFill() {
-    return interpolateViridis(this.lvl / this.maxlvl);
+  getFill(lvl: number, maxlvl: number) {
+    return interpolateViridis(lvl / maxlvl);
   }
 }

@@ -3,16 +3,9 @@
 </div>
 <p class="App-intro">
   <svg #svg
-        [attr.width]="width"
-        [attr.height]="height"
-        style="border: 1px solid lightgray">
-    <g app-pythagoras
-       [w]="baseW"
-       [heightFactor]="heightFactor"
-       [lean]="lean"
-       [x]="width / 2 - 40"
-       [y]="height - baseW"
-       [lvl]="0"
-       [maxlvl]="currentMax" />
+        (mousemove)="onMouseMove$.emit($event)"
+        [attr.width]="svgDimensions.width"
+        [attr.height]="svgDimensions.height">
+    <g *ngIf="pythagoras" [pythagoras]="pythagoras" />
   </svg>
 </p>
